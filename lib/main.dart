@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
@@ -35,41 +34,36 @@ class TaskListScreen extends StatefulWidget {
 class _TaskListScreenState extends State<TaskListScreen> {
   final TextEditingController _taskController = TextEditingController();
   final CollectionReference tasksCollection = FirebaseFirestore.instance.collection('tasks');
-  final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  // Add new task to Firebase
   Future<void> _addTask(String taskName) async {
     if (taskName.isEmpty) return;
     await tasksCollection.add({
       'name': taskName,
       'completed': false,
       'subtasks': [],
-      'userId': _auth.currentUser?.uid,
     });
     _taskController.clear();
   }
 
+  // Update task completion status
   Future<void> _toggleTaskCompletion(DocumentSnapshot task) async {
     await tasksCollection.doc(task.id).update({'completed': !task['completed']});
   }
 
+  // Delete task
   Future<void> _deleteTask(DocumentSnapshot task) async {
     await tasksCollection.doc(task.id).delete();
   }
 
+  // Add a subtask to an existing task
   Future<void> _addSubtask(DocumentSnapshot task, String subtaskName, String time) async {
     List subtasks = task['subtasks'];
     subtasks.add({'name': subtaskName, 'time': time});
     await tasksCollection.doc(task.id).update({'subtasks': subtasks});
   }
 
-  Future<void> _loginAnonymously() async {
-    await _auth.signInAnonymously();
-  }
-
-  Future<void> _logout() async {
-    await _auth.signOut();
-  }
-
+  // Show dialog to add a new subtask with a specific time
   void _showAddSubtaskDialog(DocumentSnapshot task) {
     final TextEditingController _subtaskController = TextEditingController();
     final TextEditingController _timeController = TextEditingController();
@@ -113,18 +107,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Task Manager'),
-        actions: [
-          if (_auth.currentUser == null)
-            TextButton(
-              onPressed: _loginAnonymously,
-              child: const Text('Login', style: TextStyle(color: Colors.white)),
-            )
-          else
-            TextButton(
-              onPressed: _logout,
-              child: const Text('Logout', style: TextStyle(color: Colors.white)),
-            ),
-        ],
       ),
       body: Column(
         children: [
@@ -149,9 +131,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
           ),
           Expanded(
             child: StreamBuilder(
-              stream: tasksCollection
-                  .where('userId', isEqualTo: _auth.currentUser?.uid)
-                  .snapshots(),
+              stream: tasksCollection.snapshots(),
               builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
